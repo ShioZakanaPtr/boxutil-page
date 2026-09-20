@@ -2,9 +2,9 @@ import { defineConfig } from 'vite'
 
 /**
  * 部署到 GitHub Pages 时的仓库名（https://<user>.github.io/<REPO_NAME>/）。
- * 如果仓库名不是 boxutil_page，改这里即可；自定义域名请改成 '/'.
+ * 如果仓库名不是 boxutil-page，改这里即可；自定义域名请改成 '/'.
  */
-const REPO_NAME = 'boxutil_page'
+const REPO_NAME = 'boxutil-page'
 
 export default defineConfig(({ command }) => ({
     // 开发环境用 '/'，生产构建用 '/<REPO_NAME>/'，否则 GitHub Pages 上资源会 404
