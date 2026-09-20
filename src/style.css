@@ -1,0 +1,1185 @@
+/* ==========================================================================
+   1. 设计变量
+   亮色为默认值；暗色通过 <html class="dark"> 覆盖。
+   代码块配色统一走 --code-*，shiki 生成的内联色只负责 token 颜色。
+   ========================================================================== */
+
+:root {
+    --font-sans: 'Microsoft YaHei', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+    --font-mono: 'Fira Code', 'JetBrains Mono', ui-monospace, Consolas, monospace;
+
+    --bg: #ffffff;
+    --bg-soft: #f7faf9;
+    --bg-elevated: #ffffff;
+    --bg-hover: rgba(17, 24, 21, 0.04);
+    --bg-active: rgba(85, 225, 155, 0.09);
+
+    --text: #151e1c;
+    --text-soft: #273832;
+    --text-muted: #435950;
+
+    --border: #e5ebe9;
+    --border-strong: #d2ded8;
+
+    --accent: #146e2a;
+    --accent-hover: #2a8240;
+    --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
+    --accent-line: color-mix(in srgb, var(--accent) 38%, transparent);
+
+    --code-bg: #f8fbf9;
+    --code-bar: #d2e5d6;
+    --code-border: #e3ece8;
+    --code-text: #1f302b;
+
+    --sidebar-bg: #fbfdfc;
+    --sidebar-width: 280px;
+    --banner-height: 58px;
+
+    --radius-sm: 6px;
+    --radius: 10px;
+    --radius-lg: 14px;
+
+    --shadow-sm: 0 1px 2px rgba(16, 27, 23, 0.06);
+    --shadow-hover: 0 8px 24px rgba(16, 27, 21, 0.2);
+    --shadow: 0 6px 20px -8px rgba(16, 27, 22, 0.18), 0 2px 6px -2px rgba(16, 18, 27, 0.08);
+    --shadow-lg: 0 18px 48px -16px rgba(16, 27, 24, 0.28);
+
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --content-max: 980px;
+}
+
+.dark {
+    --bg: #0f1713;
+    --bg-soft: #141f19;
+    --bg-elevated: #17231e;
+    --bg-hover: rgba(255, 255, 255, 0.06);
+    --bg-active: rgba(130, 255, 230, 0.14);
+
+    --text: #e7eeeb;
+    --text-soft: #b7c9bf;
+    --text-muted: #8aa197;
+
+    --border: #25352e;
+    --border-strong: #334840;
+
+    --accent: #2aff80;
+    --accent-hover: #79ffd0;
+    --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
+    --accent-line: color-mix(in srgb, var(--accent) 45%, transparent);
+
+    --code-bg: #02140d;
+    --code-bar: #02170f;
+    --code-border: #263630;
+    --code-text: #d7e3df;
+
+    --sidebar-bg: #121b18;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 24px 56px -20px rgba(0, 0, 0, 0.7);
+}
+
+/* ==========================================================================
+   2. 基础样式
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    /* 切换条目时页面高度会变化：预留滚动条位置，避免「有无滚动条」导致整页左右抖动 */
+    scrollbar-gutter: stable;
+}
+
+body {
+    margin: 0;
+    min-height: 100svh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 15.5px;
+    line-height: 1.72;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+    background: var(--accent-soft);
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+button {
+    font: inherit;
+    color: inherit;
+}
+
+svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+.skip-link {
+    position: absolute;
+    top: -100px;
+    left: 12px;
+    z-index: 100;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--accent);
+    color: #fff;
+
+    &:focus {
+        top: 12px;
+    }
+}
+
+/* 细滚动条，避免目录和代码块把页面切得很碎 */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+
+    &::-webkit-scrollbar {
+        width: 9px;
+        height: 9px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        border: 2px solid transparent;
+        border-radius: 100%;
+        background: var(--border-strong);
+        background-clip: padding-box;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+        background: var(--text-muted);
+        background-clip: padding-box;
+    }
+}
+
+/* ==========================================================================
+   3. 通用控件
+   ========================================================================== */
+
+.icon-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 6px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s var(--ease), color 0.15s var(--ease);
+
+    &:hover {
+        background: var(--bg-hover);
+        color: var(--text);
+    }
+}
+
+.btn {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--bg-elevated);
+    color: var(--text-soft);
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s var(--ease), border-color 0.15s var(--ease),
+        color 0.15s var(--ease), transform 0.1s var(--ease);
+
+    &:hover {
+        border-color: var(--border-strong);
+        color: var(--text);
+    }
+
+    &:active {
+        transform: translateY(1px);
+    }
+}
+
+.btn--icon {
+    width: 34px;
+    padding: 0;
+
+    svg {
+        width: 17px;
+        height: 17px;
+    }
+}
+
+/* ==========================================================================
+   4. 顶部横幅
+   ========================================================================== */
+
+.banner {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 50;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    height: var(--banner-height);
+    /* 左侧元素始终停靠横幅最左边，因此这里的左内边距与目录是否展开无关 */
+    padding: 0 18px;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    backdrop-filter: saturate(180%) blur(14px);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+}
+
+.banner__menu {
+    flex-shrink: 0;
+    margin-left: -6px;
+}
+
+.banner__brand {
+    display: flex;
+    flex-shrink: 0;
+    gap: 9px;
+    align-items: center;
+    font-size: 14.5px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    color: var(--text);
+}
+
+.banner__logo {
+    display: block;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    border-radius: 7px;
+    /* 图标是带发光边缘的透明 PNG，垫一层中性底色让亮色主题下也有对比 */
+    background: #16181f;
+    box-shadow: 0 0 0 1px var(--border), var(--shadow-sm);
+    object-fit: contain;
+}
+
+.banner__titles {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    gap: 8px;
+    align-items: baseline;
+    padding-left: 14px;
+    border-left: 1px solid var(--border);
+    font-size: 13.5px;
+}
+
+.banner__chapter {
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+
+.banner__sep {
+    flex-shrink: 0;
+    color: var(--border-strong);
+}
+
+.banner__item {
+    overflow: hidden;
+    color: var(--text);
+    font-weight: 550;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.banner__actions {
+    display: flex;
+    flex-shrink: 0;
+    gap: 8px;
+    align-items: center;
+}
+
+.theme-icon {
+    display: none;
+    width: 17px;
+    height: 17px;
+}
+
+.theme-icon--light {
+    display: block;
+}
+
+:root.dark {
+    .theme-icon--light {
+        display: none;
+    }
+
+    .theme-icon--dark {
+        display: block;
+    }
+}
+
+/* ==========================================================================
+   5. 整体骨架
+   ========================================================================== */
+
+.shell {
+    display: grid;
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+    align-items: start;
+    padding-top: var(--banner-height);
+    /* 与侧栏面板的位移使用同一时长，收起 / 展开时正文跟随移动而不会跳一下 */
+    transition: grid-template-columns 0.2s var(--ease);
+}
+
+/* 目录收起：把侧栏宽度还给正文 */
+:root.is-nav-collapsed .shell {
+    grid-template-columns: 0 minmax(0, 1fr);
+}
+
+.main {
+    min-width: 0;
+    padding: 40px 48px 96px;
+}
+
+/* 正文在剩余空间里居中；目录收起后不会突然贴到左边 */
+.page {
+    max-width: var(--content-max);
+    margin-inline: auto;
+}
+
+/* ==========================================================================
+   6. 左侧目录
+   ========================================================================== */
+
+.sidebar {
+    position: sticky;
+    top: var(--banner-height);
+    display: flex;
+    flex-direction: column;
+    width: var(--sidebar-width);
+    height: calc(100svh - var(--banner-height));
+    border-right: 1px solid var(--border);
+    background: var(--sidebar-bg);
+    /* 停靠在页面最左侧；收起时整块向左移出视口 */
+    transition: transform 0.2s var(--ease), opacity 0.2s var(--ease);
+}
+
+/* 桌面端把整个面板收进左侧屏幕外，只留横幅上的目录按钮 */
+:root.is-nav-collapsed .sidebar {
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.sidebar__head {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    /* 左侧不留白，让「目录」与页面左边缘保持统一的 16px 内边距 */
+    border-bottom: 1px solid var(--border);
+    padding: 12px 10px 12px 16px;
+}
+
+.sidebar__home {
+    flex: 1;
+    color: var(--text-muted);
+    font-size: 11.5px;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.sidebar__head-actions {
+    display: flex;
+    flex-shrink: 0;
+    gap: 2px;
+    align-items: center;
+}
+
+.sidebar__collapse,
+.sidebar__close {
+    width: 26px;
+    height: 26px;
+    padding: 5px;
+}
+
+/* 窄屏用抽屉，所以这两个按钮的显隐由媒体查询控制：
+   桌面端显示「收起面板」，窄屏显示「关闭抽屉」 */
+.sidebar__close {
+    display: none;
+}
+
+.sidebar__nav {
+    overflow-y: auto;
+    flex: 1;
+    padding: 4px 12px 20px;
+    overscroll-behavior: contain;
+}
+
+.nav-group + .nav-group {
+    margin-top: 2px;
+}
+
+.nav-group__toggle {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s var(--ease), color 0.15s var(--ease);
+
+    &:hover {
+        background: var(--bg-hover);
+        color: var(--text);
+    }
+}
+
+.nav-group__chevron {
+    display: block;
+    width: 13px;
+    height: 13px;
+    color: var(--text-muted);
+    transition: transform 0.2s var(--ease);
+}
+
+.nav-group.is-open .nav-group__chevron {
+    transform: rotate(90deg);
+}
+
+.nav-group__title {
+    flex: 1;
+}
+
+.nav-group__count {
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--bg-hover);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 16px;
+}
+
+/* 折叠动画：grid-template-rows 0fr → 1fr 可以过渡到内容自适应高度 */
+.nav-group__body {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.2s var(--ease);
+
+    &[hidden] {
+        display: grid;
+    }
+}
+
+.nav-group.is-open .nav-group__body {
+    grid-template-rows: 1fr;
+}
+
+.nav-list {
+    overflow: hidden;
+    margin: 0;
+    padding: 0 0 0;
+    list-style: none;
+}
+
+.nav-link {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    /* 缩进：左侧留出章节标题的图标宽度，形成层级感 */
+    padding: 8px 10px 8px 32px;
+    border-radius: var(--radius-sm);
+    color: var(--text-soft);
+    font-size: 13.5px;
+    transition: background 0.1s var(--ease), color 0.1s var(--ease), font-size 0.1s var(--ease), padding 0.1s var(--ease);
+
+
+    &:hover {
+        background: var(--bg-hover);
+        color: var(--text);
+    }
+}
+
+.nav-link__dot {
+    flex-shrink: 0;
+    width: 4px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-strong);
+    transition: width 0.1s var(--ease), background 0.1s var(--ease);
+}
+
+.nav-link__text {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.nav-link.is-active {
+    padding: 10px 10px 10px 32px;
+    font-size: 15px;
+    background: var(--bg-active);
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.nav-link.is-active .nav-link__dot {
+    width: 12px;
+    background: var(--accent);
+}
+
+.backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 59;
+    background: rgba(10, 12, 18, 0.45);
+    backdrop-filter: blur(2px);
+}
+
+/* ==========================================================================
+   7. 条目页面
+   ========================================================================== */
+
+.page__head {
+    padding-bottom: 26px;
+    margin-bottom: 30px;
+    border-bottom: 1px solid var(--border);
+}
+
+.page__eyebrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin: 0 0 12px;
+    font-size: 12.5px;
+}
+
+.page__chapter {
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.page__crumb-sep {
+    color: var(--border-strong);
+}
+
+.page__hint {
+    padding: 2px 7px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-soft);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+}
+
+.page__title {
+    margin: 0;
+    color: var(--text);
+    font-size: 34px;
+    font-weight: 700;
+    line-height: 1.24;
+    letter-spacing: -0.022em;
+}
+
+.page__lead {
+    margin: 10px 0 0;
+    color: var(--text-muted);
+    font-size: 14.5px;
+    font-weight: 700;
+    font-style: italic;
+}
+
+.page__loading {
+    color: var(--text-muted);
+}
+
+.page__version {
+    padding-right: 8px;
+    text-align: right;
+    color: var(--text-muted);
+    font-size: 14.5px;
+    font-weight: 700;
+    font-style: italic;
+    margin: 3px 0;
+}
+
+/* ==========================================================================
+   8. 正文排版
+   ========================================================================== */
+
+.prose {
+    font-size: 15.5px;
+    line-height: 1.78;
+}
+
+.prose > :first-child {
+    margin-top: 0;
+}
+
+.prose h2 {
+    margin: 44px 0 12px;
+    padding-top: 22px;
+    border-top: 1px solid var(--border);
+    color: var(--text);
+    font-size: 20.5px;
+    font-weight: 650;
+    line-height: 1.4;
+    letter-spacing: -0.014em;
+}
+
+.prose h3 {
+    margin: 30px 0 10px;
+    color: var(--text);
+    font-size: 16.5px;
+    font-weight: 650;
+}
+
+.prose p {
+    margin: 14px 0;
+    color: var(--text-soft);
+}
+
+.prose strong {
+    color: var(--text);
+    font-weight: 620;
+}
+
+.prose a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: var(--accent-line);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    transition: text-decoration-color 0.15s var(--ease);
+
+    &:hover {
+        text-decoration-color: currentColor;
+    }
+}
+
+.prose ul,
+.prose ol {
+    margin: 14px 0;
+    padding-left: 22px;
+    color: var(--text-soft);
+}
+
+.prose li {
+    margin: 7px 0;
+    padding-left: 2px;
+
+    &::marker {
+        color: var(--text-muted);
+    }
+}
+
+.prose blockquote {
+    margin: 20px 0;
+    padding: 2px 0 2px 16px;
+    border-left: 2px solid var(--accent-line);
+    color: var(--text-soft);
+}
+
+.prose code {
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--code-bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.86em;
+    white-space: nowrap;
+}
+
+.prose hr {
+    height: 1px;
+    margin: 36px 0;
+    border: none;
+    background: var(--border);
+}
+
+.prose figure {
+    margin: 0;
+}
+
+.doc-figure {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 24px 0;
+}
+
+.doc-figure img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-height: min(520px, 60vh);
+    margin-inline: auto;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: #00000000;
+    box-shadow: var(--shadow-sm);
+    object-fit: contain;
+    cursor: zoom-in;
+    transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+
+.doc-figure img:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+}
+
+.doc-figure figcaption {
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.6;
+    text-align: center;
+}
+
+.doc-figure figcaption code {
+    font-size: 0.88em;
+}
+
+/* 表格 */
+.prose table {
+    width: 100%;
+    margin: 20px 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    font-size: 14px;
+}
+
+.prose thead {
+    background: var(--bg-soft);
+}
+
+.prose th {
+    padding: 9px 14px;
+    color: var(--text);
+    border-right: 1px solid var(--border);
+    font-weight: 620;
+    text-align: left;
+}
+
+.prose td {
+    padding: 9px 14px;
+    border-top: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    color: var(--text-soft);
+}
+
+.prose tr:hover {
+    background-color: var(--bg-hover);
+}
+
+.prose td code {
+    white-space: nowrap;
+}
+
+/* 提示块 */
+.callout,
+.note,
+.warn {
+    margin: 22px 0;
+    padding: 13px 16px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    background: var(--bg-soft);
+    font-size: 14.5px;
+
+    p {
+        margin: 0;
+        color: var(--text-soft);
+
+        & + p {
+            margin-top: 8px;
+        }
+    }
+}
+
+.note {
+    border-left-color: #67d530;
+}
+
+.warn {
+    border-left-color: #e0a33a;
+}
+
+.callout--danger {
+    border-left-color: #e05252;
+}
+
+/* ==========================================================================
+   9. 代码块（shiki）
+   ========================================================================== */
+
+.code-block {
+    position: relative;
+    margin: 20px 0;
+    border: 1px solid var(--code-border);
+    border-radius: var(--radius);
+    background: var(--code-bg);
+    overflow: hidden;
+}
+
+.code-block__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 34px;
+    padding: 0 8px 0 14px;
+    border-bottom: 1px solid var(--code-border);
+    background: var(--code-bar);
+}
+
+.code-block__lang {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.code-block__copy {
+    width: 26px;
+    height: 26px;
+    padding: 5px;
+}
+
+.icon-check {
+    display: none;
+}
+
+.code-block__copy[data-state='copied'] {
+    color: #3fa86a;
+
+    .icon-copy {
+        display: none;
+    }
+
+    .icon-check {
+        display: block;
+    }
+}
+
+.code-block__body {
+    position: relative;
+    max-height: 560px;
+    overflow: auto;
+}
+
+.code-block__body pre {
+    margin: 0;
+    padding: 15px 18px;
+    /* 只覆盖 shiki 写在 pre 上的内联背景；token 颜色必须保留：
+       若在这里设置 color，会盖掉 shiki 给每个 token 的行内色，整块代码变成单色 */
+    background: transparent !important;
+    font-family: var(--font-mono);
+    font-size: 13.2px;
+    line-height: 1.68;
+    tab-size: 4;
+}
+
+/* 未高亮（加载中 / 高亮失败）时用主题文字色，保证可读 */
+.code-block__body pre:not(.shiki) {
+    color: var(--code-text);
+}
+
+.code-block__body code {
+    display: block;
+    padding: 0;
+    border: none;
+    background: none;
+    font-family: inherit;
+    font-size: inherit;
+    white-space: pre;
+}
+
+.code-block__loading {
+    opacity: 0.45;
+    transition: opacity 0.2s var(--ease);
+}
+
+.code-block__fallback {
+    color: var(--code-text);
+}
+
+/* shiki 会把 token 颜色写成内联样式，这里只补背景与必需的布局 */
+.code-block__body pre.shiki,
+.code-block__body pre.shiki span {
+    background-color: transparent;
+}
+
+/* ==========================================================================
+   10. 底部左右翻页
+   ========================================================================== */
+
+.page-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 56px;
+    padding-top: 26px;
+    border-top: 1px solid var(--border);
+}
+
+.page-nav__link {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    min-width: 0;
+    padding: 13px 15px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-elevated);
+    transition: border-color 0.16s var(--ease), background 0.16s var(--ease),
+        box-shadow 0.16s var(--ease), transform 0.16s var(--ease);
+
+    &:hover {
+        border-color: var(--accent-line);
+        background: var(--accent-soft);
+        box-shadow: var(--shadow-sm);
+    }
+}
+
+.page-nav__link--next {
+    justify-content: flex-end;
+    text-align: right;
+}
+
+.page-nav__arrow {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    color: var(--text-muted);
+    transition: color 0.16s var(--ease), transform 0.16s var(--ease);
+}
+
+.page-nav__link:hover .page-nav__arrow {
+    color: var(--accent);
+}
+
+.page-nav__link--prev:hover .page-nav__arrow {
+    transform: translateX(-2px);
+}
+
+.page-nav__link--next:hover .page-nav__arrow {
+    transform: translateX(2px);
+}
+
+.page-nav__text {
+    display: flex;
+    overflow: hidden;
+    min-width: 0;
+    flex-direction: column;
+    line-height: 1.42;
+}
+
+.page-nav__label {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.page-nav__title {
+    overflow: hidden;
+    color: var(--text);
+    font-size: 14.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.page-nav__chapter {
+    overflow: hidden;
+    color: var(--text-muted);
+    font-size: 12px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.page-nav__placeholder {
+    display: block;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    opacity: 0.5;
+}
+
+/* ==========================================================================
+   11. 响应式
+   ========================================================================== */
+
+@media (min-width: 1500px) {
+    :root {
+        --sidebar-width: 300px;
+    }
+
+    body {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .main {
+        padding: 34px 30px 80px;
+    }
+}
+
+@media (max-width: 980px) {
+    .banner__titles {
+        padding-left: 12px;
+    }
+
+    .shell {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* 窄屏下目录变成抽屉：横幅恢复常规留白，桌面端的收纳状态在此不生效 */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 60;
+        height: 100svh;
+        width: min(84vw, 320px);
+        /* 覆盖桌面端的收纳样式，抽屉必须可交互 */
+        opacity: 1;
+        pointer-events: auto;
+        border-right: 1px solid var(--border);
+        box-shadow: var(--shadow-lg);
+        transform: translateX(-100%);
+        transition: transform 0.26s var(--ease);
+    }
+
+    /* !important 用于压过桌面端的 is-nav-collapsed 规则（两者选择器优先级相同） */
+    :root.is-nav-open .sidebar {
+        transform: none !important;
+    }
+
+    .sidebar__head {
+        padding-top: 18px;
+    }
+
+    /* 窄屏用抽屉，隐藏「收纳面板」按钮，改用「关闭抽屉」 */
+    .sidebar__collapse {
+        display: none;
+    }
+
+    .sidebar__close {
+        display: inline-grid;
+    }
+
+    .main {
+        padding: 28px 20px 72px;
+    }
+
+    .page__title {
+        font-size: 27px;
+    }
+}
+
+@media (max-width: 620px) {
+    .banner {
+        gap: 10px;
+        padding: 0 12px;
+    }
+
+    .banner__brand-text {
+        display: none;
+    }
+
+    .banner__titles {
+        font-size: 12.5px;
+    }
+
+    .page__title {
+        font-size: 23px;
+    }
+
+    .prose h2 {
+        margin-top: 34px;
+        font-size: 18.5px;
+    }
+
+    .code-block__body pre {
+        font-size: 12.5px;
+    }
+
+    .page-nav {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .page-nav__placeholder {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        transition-duration: 0.001ms !important;
+    }
+}
+
+@media print {
+    .banner,
+    .sidebar,
+    .backdrop,
+    .page-nav {
+        display: none !important;
+    }
+
+    .shell {
+        display: block;
+        padding-top: 0;
+    }
+
+    .main {
+        padding: 0;
+    }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "boxutil_page",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "deploy": "gh-pages -d dist",
+    "preview": "vite preview",
+    "check": "tsc --noEmit",
+    "verify:shiki": "node scripts/check-shiki.mjs",
+    "verify:page": "node scripts/verify-page.mjs",
+    "shots": "node scripts/shots.mjs"
+  },
+  "devDependencies": {
+    "gh-pages": "^6.3.0",
+    "shiki": "^4.4.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0"
+  }
+}
