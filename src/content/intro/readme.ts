@@ -30,11 +30,11 @@ export default `
 <h2>快速开始</h2>
 <p>为Mod接入BoxUtil并配置完毕后，你可以在公开的内容中找到许多能简化Mod开发流程的方法，其中较为常用且简单的有：</p>
 <ul>
-    <li><strong><a href="#/static_trail/autogen_register">静态尾迹</a></strong>：借助内置的尾迹系统为弹丸或导弹轻松添加自定义尾迹，无需手动维护。</li>
-    <li><strong><a href="#/tool/rendering_util">RenderingUtil</a></strong>：通过该工具类快速生成各种视觉特效，或通过BoxUtil引擎实现的类原版视效。</li>
-    <li><strong><a href="#/tool/curve_util">CurveUtil</a></strong>：无需借助 <code>createFXDrone</code> 即可快速生成高度自定义的直线或曲线光束，也包含少量曲线几何相关方法。</li>
-    <li><strong><a href="#/tool/shader_util">ShaderUtil</a></strong>：覆盖所有着色器类型的创建方法，以及特殊纹理的生成与处理。</li>
-    <li><strong><a href="#/example/rendering_text">文本渲染</a></strong>：通过位图字体在任何位置显示样式丰富的文本消息。</li>
+    <li><strong><a href="#/static-trail/autogen-register">静态尾迹</a></strong>：借助内置的尾迹系统为弹丸或导弹轻松添加自定义尾迹，无需手动维护。</li>
+    <li><strong><a href="#/tool/rendering-util">RenderingUtil</a></strong>：通过该工具类快速生成各种视觉特效，或通过BoxUtil引擎实现的类原版视效。</li>
+    <li><strong><a href="#/tool/curve-util">CurveUtil</a></strong>：无需借助 <code>createFXDrone</code> 即可快速生成高度自定义的直线或曲线光束，也包含少量曲线几何相关方法。</li>
+    <li><strong><a href="#/tool/shader-util">ShaderUtil</a></strong>：覆盖所有着色器类型的创建方法，以及特殊纹理的生成与处理。</li>
+    <li><strong><a href="#/example/rendering-text">文本渲染</a></strong>：通过位图字体在任何位置显示样式丰富的文本消息。</li>
 </ul>
 <p>关于具体如何接入，可参考<a href="#/intro/install">代码配置</a>一节。</p>
 <hr>

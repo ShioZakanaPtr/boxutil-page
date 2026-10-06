@@ -672,7 +672,11 @@ svg {
 
 .prose strong {
     color: var(--text);
-    font-weight: 620;
+    font-weight: 640;
+}
+
+.prose b {
+    font-weight: 640;
 }
 
 .prose a {
