@@ -29,8 +29,11 @@ const icons = {
     /** 自适应尺寸：四角箭头朝内，表示缩小到刚好装进窗口 */
     fit: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M3 21l7-7"/></svg>`,
 
-    /** 原尺寸：四角箭头朝外，表示还原到 100% 的原始像素 */
-    actual: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>`,
+    /** 原尺寸：直接写 1:1，数字 1 带顶部斜衬线、底部不收笔（与常见字体里的 1 一致） */
+    actual: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3.4 9.4 6.4 7v10"/><path d="M12 9.2v1.6M12 14.2v1.6"/><path d="M17.6 9.4 20.6 7v10"/></svg>`,
+
+    /** 逆时针旋转 90° */
+    rotate: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 4v6h6"/><path d="M4.51 15a9 9 0 1 0 2.13-9.36L2 10"/></svg>`,
 
     /** 线性过滤：平滑的过渡（GL_LINEAR） */
     filterLinear: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M3.5 20.5C8.5 20.5 15.5 3.5 20.5 3.5"/></svg>`,

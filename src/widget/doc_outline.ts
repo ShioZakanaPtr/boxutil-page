@@ -9,7 +9,8 @@ import {renderCodeBlocks} from './code_block.ts'
  * 启动后会在后台逐个载入各条目的正文（与路由用的是同一份动态 import），
  * 用 DOMParser 解析出每页 h2 的标题，攒成整站的索引，于是：
  * - 还没进过的条目也能在左侧目录里展开并点击它的小节
- * - 访问过的条目大纲常驻，离开页面后依然保持展开 / 收起状态
+ * - 每次进入条目都会自动展开它的小节；离开后其它条目的大纲继续保持原样
+ * - 收起只作用于这一次停留：再次进入同一条目会重新展开
  *
  * 当前页面的大纲以真正挂载到 DOM 的正文为准（扫描后补 id），
  * 顺便回写索引，写错内容文件也会立刻自愈。
@@ -21,20 +22,17 @@ interface OutlineEntry {
     title: string
 }
 
-/** 被用户主动收起过的条目存档键 */
-const COLLAPSED_KEY = 'boxutil-guide-nav-outline-collapsed'
-
 /** path → 该条目正文里 h2 的标题（按出现顺序） */
 const outlineIndex = new Map<string, string[]>()
 /** 当前处于展开状态的条目 */
 const expanded = new Set<string>()
-/** 用户主动收起过的条目：再次进入时不自动展开 */
-const manuallyCollapsed = new Set<string>()
 
 /** 当前页面的 h2 大纲（正文挂载后扫描得到） */
 let entries: OutlineEntry[] = []
 /** 当前条目的路由路径，用于拼跳转链接、区分「本页跳转」与「跨页跳转」 */
 let currentPath = ''
+/** 上一次渲染的条目路径，用来判断这次是「进入新条目」还是「还停在同一页」 */
+let lastPath = ''
 let pageOutline: HTMLElement | null = null
 
 /** 程序化滚动期间锁定的高亮目标：滚动中间帧不得把高亮带偏 */
@@ -43,11 +41,8 @@ let pinTimer = 0
 let idleTimer = 0
 let scrollPending = false
 let indexStarted = false
-let collapsedLoaded = false
 
 export function setupDocOutline(): void {
-    loadCollapsed()
-
     document.addEventListener('click', (event) => {
         const target = event.target
         if (!(target instanceof Element)) return
@@ -101,6 +96,9 @@ export function resetDocOutline(): void {
 
 /** 正文挂载后调用：收集本页 h2、同步索引与两处导航 */
 export function mountDocOutline(content: HTMLElement, path: string): void {
+    const entering = path !== lastPath
+    lastPath = path
+
     const scanned = collect(content)
     currentPath = path
     entries = scanned
@@ -114,8 +112,9 @@ export function mountDocOutline(content: HTMLElement, path: string): void {
     document.documentElement.classList.toggle('has-outline', entries.length > 0)
 
     if (entries.length > 0) {
-        // 进入条目：没被主动收起过就自动展开
-        if (!manuallyCollapsed.has(path)) setExpanded(path, true)
+        // 每次「进入」这个条目都重新展开（上一次主动收起过也一样）；
+        // 已经停在本页时再点一次导航不算进入，展开状态原样保留
+        if (entering) setExpanded(path, true)
         mountPageOutline()
         restoreAnchor()
     }
@@ -233,13 +232,7 @@ function setExpanded(path: string, open: boolean): void {
 function toggleOutline(toggle: HTMLElement): void {
     const path = toggle.closest<HTMLElement>('.nav-item')?.dataset.navItem
     if (!path) return
-
-    const open = !expanded.has(path)
-    setExpanded(path, open)
-    // 主动收起：记住，之后进入这个条目也不再自动展开；主动展开则撤销这条记忆
-    if (open) manuallyCollapsed.delete(path)
-    else manuallyCollapsed.add(path)
-    saveCollapsed()
+    setExpanded(path, !expanded.has(path))
 }
 
 function outlineItem(path: string, id: string, title: string, block: string): string {
@@ -374,26 +367,6 @@ function markActive(id: string): void {
         link.classList.toggle('is-active', active)
         if (active) link.setAttribute('aria-current', 'true')
         else link.removeAttribute('aria-current')
-    }
-}
-
-function loadCollapsed(): void {
-    if (collapsedLoaded) return
-    collapsedLoaded = true
-    try {
-        const raw = localStorage.getItem(COLLAPSED_KEY)
-        if (!raw) return
-        for (const path of JSON.parse(raw) as string[]) manuallyCollapsed.add(path)
-    } catch {
-        // 存档损坏时按「都没有主动收起过」处理
-    }
-}
-
-function saveCollapsed(): void {
-    try {
-        localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...manuallyCollapsed]))
-    } catch {
-        // 隐私模式等场景下写不进去，忽略即可
     }
 }
 

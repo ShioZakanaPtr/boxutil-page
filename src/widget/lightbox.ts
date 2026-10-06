@@ -7,11 +7,16 @@ import {icon} from './icons.ts'
  * 再反推它与页面里原始位置之间的位移与缩放当作过渡起点，
  * 于是图片看起来是从原位置淡入并平移到中央的。
  *
+ * DOM 分成「舞台 + 图片」两层：
+ * - .lightbox__stage 承担布局，尺寸恒等于当前旋转角度下的可视包围盒，
+ *   这样居中与滚动范围都不会被旋转后的溢出带偏；
+ * - .lightbox__image 始终保持未旋转的显示尺寸，旋转全部交给 transform。
+ *
  * 过渡结束后可以自由缩放：
  * - PC：滚轮缩放（以光标为锚点）、单指拖动查看
  * - 触屏：双指缩放，单指拖动查看
  *
- * 底部工具条分三组，用分割线隔开：倍率 + 当前尺寸 | 尺寸调节 | 纹理过滤。
+ * 底部工具条分三组，用分割线隔开：倍率 + 当前尺寸 | 尺寸调节 + 旋转 | 纹理过滤。
  */
 
 /** 与 CSS 中的过渡时长保持一致（0.1s） */
@@ -23,6 +28,8 @@ const MAX_SCALE = 16
 const DRAG_THRESHOLD = 4
 /** 纹理过滤模式的存档键：全局记忆，下次打开预览时沿用 */
 const FILTER_KEY = 'boxutil-guide-image-filter'
+/** 每次点击旋转按钮逆时针转过的角度 */
+const ROTATE_STEP = 90
 
 type FilterMode = 'linear' | 'nearest'
 
@@ -30,11 +37,13 @@ interface LightboxRefs {
     root: HTMLDivElement
     backdrop: HTMLDivElement
     viewport: HTMLDivElement
+    stage: HTMLDivElement
     image: HTMLImageElement
     zoom: HTMLSpanElement
     size: HTMLSpanElement
     fit: HTMLButtonElement
     actual: HTMLButtonElement
+    rotate: HTMLButtonElement
     filter: HTMLButtonElement
     close: HTMLButtonElement
 }
@@ -55,6 +64,8 @@ let scale = 1
 let fitScale = 1
 let naturalWidth = 0
 let naturalHeight = 0
+/** 逆时针旋转角度，取值 0 / 90 / 180 / 270；只在本次预览会话内有效 */
+let rotation = 0
 /** 触发预览的那张页面图片，关闭时飞回它的位置 */
 let source: HTMLImageElement | null = null
 let smoothTimer = 0
@@ -107,14 +118,15 @@ export function closeLightbox(): void {
 
     const to = el.image.getBoundingClientRect()
     const from = target.getBoundingClientRect()
-    const ratio = to.width > 0 ? from.width / to.width : 1
+    // 用未旋转的显示宽度做基准：飞回途中顺带把图转正，落点与页面里的原图完全同尺寸
+    const ratio = naturalWidth * scale > 0 ? from.width / (naturalWidth * scale) : 1
 
     animating = true
     el.root.classList.remove('is-ready')
     el.root.classList.add('is-animating')
+    el.stage.classList.remove('is-smooth')
     el.image.classList.remove('is-smooth')
-    el.image.style.transformOrigin = 'top left'
-    el.image.style.transform = `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${ratio})`
+    el.image.style.transform = `${centered(deltaX(from, to), deltaY(from, to), ratio)} rotate(0deg)`
     el.image.style.opacity = '0'
     el.backdrop.style.opacity = '0'
 
@@ -136,18 +148,17 @@ function open(image: HTMLImageElement): void {
     source = image
     opened = true
     animating = true
+    // 旋转只是本次预览会话的临时属性，每次打开都从 0 开始
+    rotation = 0
 
     // 锁住页面滚动：html 上加了 overflow: hidden，配合 scrollbar-gutter: stable 不会左右抖动
     document.documentElement.classList.add('is-lightbox-open')
 
     el.image.src = image.currentSrc || image.src
     el.image.alt = image.alt
-    el.image.classList.remove('is-smooth')
-    el.image.style.transition = 'none'
-    el.image.style.transformOrigin = 'top left'
-    el.image.style.transform = 'none'
-    el.image.style.opacity = '0'
     applyFilter()
+    el.image.style.transition = 'none'
+    el.image.style.opacity = '0'
     el.root.hidden = false
     el.root.setAttribute('aria-hidden', 'false')
     el.root.classList.remove('is-ready')
@@ -156,19 +167,20 @@ function open(image: HTMLImageElement): void {
 
     fitScale = computeFit()
     scale = fitScale
-    applySize()
+    applySize(false)
+    applyRotation()
     updateBar()
 
-    // 目标位置（尚未应用 transform 的布局位置），据此反推过渡起点
+    // 目标位置（尚未应用 FLIP transform 的布局位置），据此反推过渡起点
     const to = el.image.getBoundingClientRect()
     const ratio = to.width > 0 ? from.width / to.width : 1
-    el.image.style.transform = `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${ratio})`
+    el.image.style.transform = centered(deltaX(from, to), deltaY(from, to), ratio)
 
     // 强制一次样式计算，让下面的改动成为过渡的终点，而不是被合并进同一帧
     void el.image.offsetWidth
 
     el.image.style.transition = ''
-    el.image.style.transform = 'none'
+    applyRotation()
     el.image.style.opacity = '1'
     el.backdrop.style.opacity = '1'
 
@@ -188,6 +200,7 @@ function teardown(): void {
     opened = false
     animating = false
     source = null
+    rotation = 0
     pointers.clear()
     pan = null
     pinchDistance = 0
@@ -197,16 +210,34 @@ function teardown(): void {
     el.root.hidden = true
     el.root.classList.remove('is-ready', 'is-animating')
     el.root.setAttribute('aria-hidden', 'true')
+    el.stage.classList.remove('is-smooth')
     el.image.classList.remove('is-smooth')
+    el.stage.removeAttribute('style')
     el.image.removeAttribute('style')
     el.backdrop.removeAttribute('style')
 
     document.documentElement.classList.remove('is-lightbox-open')
 }
 
+/** 旋转 90 / 270 时，可视包围盒的宽高互换 */
+function swapped(): boolean {
+    return rotation % 180 !== 0
+}
+
+/** 当前旋转角度下的可视宽度（px） */
+function viewWidth(): number {
+    return (swapped() ? naturalHeight : naturalWidth) * scale
+}
+
+/** 当前旋转角度下的可视高度（px） */
+function viewHeight(): number {
+    return (swapped() ? naturalWidth : naturalHeight) * scale
+}
+
 /**
  * 刚好完整显示在窗口内所需的倍率；图片本来就装得下时返回 1（按原尺寸显示，不放大）。
  *
+ * 按旋转后的可视包围盒计算，所以竖过来之后依然整体可见。
  * 用 border box 而不是 clientWidth / clientHeight：后者会被滚动条吃掉十几像素，
  * 而滚动条是「先有内容再有滚动条」的，用它算倍率会让同一个窗口在不同时刻得到不同结果。
  * 末尾再留 1px 余量，避免算出的尺寸刚好卡在边界上又反过来撑出一条滚动条。
@@ -218,14 +249,54 @@ function computeFit(): number {
     const boxWidth = rect.width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 1
     const boxHeight = rect.height - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom) - 1
     if (boxWidth <= 0 || boxHeight <= 0) return 1
-    return Math.max(MIN_SCALE, Math.min(1, boxWidth / naturalWidth, boxHeight / naturalHeight))
+    const width = swapped() ? naturalHeight : naturalWidth
+    const height = swapped() ? naturalWidth : naturalHeight
+    return Math.max(MIN_SCALE, Math.min(1, boxWidth / width, boxHeight / height))
 }
 
-/** 按当前倍率写回图片尺寸 */
-function applySize(): void {
+/** 图片保持未旋转的显示尺寸；舞台盒子取旋转后的可视包围盒 */
+function applySize(smooth: boolean): void {
     const el = refs!
+    el.stage.classList.toggle('is-smooth', smooth)
+    el.image.classList.toggle('is-smooth', smooth)
+    if (smooth) {
+        window.clearTimeout(smoothTimer)
+        smoothTimer = window.setTimeout(() => {
+            el.stage.classList.remove('is-smooth')
+            el.image.classList.remove('is-smooth')
+        }, DURATION * 3)
+    }
+
     el.image.style.width = `${naturalWidth * scale}px`
     el.image.style.height = `${naturalHeight * scale}px`
+    el.stage.style.width = `${viewWidth()}px`
+    el.stage.style.height = `${viewHeight()}px`
+}
+
+/** CSS 的正角度是顺时针，取负值才是「逆时针旋转」 */
+function applyRotation(): void {
+    const el = refs
+    if (!el) return
+    el.image.style.transform = rotation === 0 ? centered(0, 0, 1) : `${centered(0, 0, 1)} rotate(${-rotation}deg)`
+}
+
+/**
+ * 居中用的基础变换：元素以 left/top 50% 定位，再平移自身一半即可居中，
+ * 而且不受「内容比容器大」时 auto margin 归零的影响。
+ */
+function centered(dx: number, dy: number, factor: number): string {
+    const parts = ['translate(-50%, -50%)']
+    if (dx !== 0 || dy !== 0) parts.push(`translate(${dx}px, ${dy}px)`)
+    if (factor !== 1) parts.push(`scale(${factor})`)
+    return parts.join(' ')
+}
+
+function deltaX(from: DOMRect, to: DOMRect): number {
+    return from.left + from.width / 2 - (to.left + to.width / 2)
+}
+
+function deltaY(from: DOMRect, to: DOMRect): number {
+    return from.top + from.height / 2 - (to.top + to.height / 2)
 }
 
 function loadFilter(): void {
@@ -241,13 +312,13 @@ function applyFilter(): void {
     el.image.style.imageRendering = filter === 'nearest' ? 'pixelated' : 'auto'
 }
 
-/** 同步底部工具条：倍率、当前尺寸、两个尺寸按钮的选中态、过滤模式按钮 */
+/** 同步底部工具条：倍率、当前尺寸、两个尺寸按钮的选中态、旋转与过滤按钮 */
 function updateBar(): void {
     const el = refs
     if (!el) return
 
     el.zoom.textContent = `${Math.round(scale * 100)}%`
-    el.size.textContent = `${Math.round(naturalWidth * scale)} x ${Math.round(naturalHeight * scale)}`
+    el.size.textContent = `${Math.round(viewWidth())} x ${Math.round(viewHeight())}`
 
     // 两个按钮始终可点：即便当前倍率已经相同，也允许再点一次（不做禁用）
     const atFit = Math.abs(scale - fitScale) < 0.005
@@ -263,6 +334,11 @@ function updateBar(): void {
     el.actual.title = actualLabel
     el.fit.setAttribute('aria-label', fitLabel)
     el.actual.setAttribute('aria-label', actualLabel)
+
+    const rotateLabel = `逆时针旋转 90°（当前 ${rotation}°）`
+    el.rotate.title = rotateLabel
+    el.rotate.setAttribute('aria-label', rotateLabel)
+    el.rotate.dataset.angle = String(rotation)
 
     el.filter.dataset.filter = filter
     el.filter.setAttribute('aria-pressed', String(filter === 'nearest'))
@@ -285,14 +361,8 @@ function zoom(clientX: number, clientY: number, next: number, smooth: boolean): 
 
     const before = el.image.getBoundingClientRect()
 
-    el.image.classList.toggle('is-smooth', smooth)
-    if (smooth) {
-        window.clearTimeout(smoothTimer)
-        smoothTimer = window.setTimeout(() => el.image.classList.remove('is-smooth'), DURATION * 3)
-    }
-
     scale = clamped
-    applySize()
+    applySize(smooth)
     updateBar()
 
     // 让光标下的那个点在缩放前后停在同一处。smooth 时尺寸尚未变化，
@@ -312,6 +382,27 @@ function zoomTo(next: number): void {
     zoom(el.viewport.clientWidth / 2, el.viewport.clientHeight / 2, next, true)
 }
 
+/** 逆时针转 90°：0 → 90 → 180 → 270 → 0 循环；自适应状态下按旋转后的包围盒重新适配 */
+function rotate(): void {
+    const el = refs
+    if (!el) return
+
+    const wasFit = Math.abs(scale - fitScale) < 0.005
+    rotation = (rotation + ROTATE_STEP) % 360
+    fitScale = computeFit()
+    if (wasFit) scale = fitScale
+
+    applySize(true)
+    applyRotation()
+    updateBar()
+
+    // 旋转会改变滚动范围，等布局落定后把画面重新摆回中心
+    window.requestAnimationFrame(() => {
+        el.viewport.scrollLeft = (el.viewport.scrollWidth - el.viewport.clientWidth) / 2
+        el.viewport.scrollTop = (el.viewport.scrollHeight - el.viewport.clientHeight) / 2
+    })
+}
+
 function ensure(): LightboxRefs {
     if (refs) return refs
 
@@ -327,7 +418,9 @@ function ensure(): LightboxRefs {
     root.innerHTML = `
     <div class="lightbox__backdrop"></div>
     <div class="lightbox__viewport">
-      <img class="lightbox__image" alt="" decoding="async" draggable="false">
+      <div class="lightbox__stage">
+        <img class="lightbox__image" alt="" decoding="async" draggable="false">
+      </div>
     </div>
     <div class="lightbox__bar">
       <span class="lightbox__zoom" aria-live="polite">100%</span>
@@ -335,6 +428,7 @@ function ensure(): LightboxRefs {
       <span class="lightbox__divider" aria-hidden="true"></span>
       <button type="button" class="lightbox__action" data-action="fit">${icon('fit')}</button>
       <button type="button" class="lightbox__action" data-action="actual">${icon('actual')}</button>
+      <button type="button" class="lightbox__action" data-action="rotate">${icon('rotate')}</button>
       <span class="lightbox__divider" aria-hidden="true"></span>
       <button type="button" class="lightbox__action" data-action="filter">${icon('filterLinear')}</button>
     </div>
@@ -345,11 +439,13 @@ function ensure(): LightboxRefs {
 
     const backdrop = root.querySelector<HTMLDivElement>('.lightbox__backdrop')!
     const viewport = root.querySelector<HTMLDivElement>('.lightbox__viewport')!
+    const stage = root.querySelector<HTMLDivElement>('.lightbox__stage')!
     const image = root.querySelector<HTMLImageElement>('.lightbox__image')!
     const zoomLabel = root.querySelector<HTMLSpanElement>('.lightbox__zoom')!
     const size = root.querySelector<HTMLSpanElement>('.lightbox__size')!
     const fitButton = root.querySelector<HTMLButtonElement>('.lightbox__action[data-action="fit"]')!
     const actualButton = root.querySelector<HTMLButtonElement>('.lightbox__action[data-action="actual"]')!
+    const rotateButton = root.querySelector<HTMLButtonElement>('.lightbox__action[data-action="rotate"]')!
     const filterButton = root.querySelector<HTMLButtonElement>('.lightbox__action[data-action="filter"]')!
     const close = root.querySelector<HTMLButtonElement>('.lightbox__close')!
 
@@ -357,11 +453,13 @@ function ensure(): LightboxRefs {
         root,
         backdrop,
         viewport,
+        stage,
         image,
         zoom: zoomLabel,
         size,
         fit: fitButton,
         actual: actualButton,
+        rotate: rotateButton,
         filter: filterButton,
         close,
     }
@@ -381,7 +479,7 @@ function ensure(): LightboxRefs {
     // ---- 空白处点击关闭 ----
     viewport.addEventListener('click', (event) => {
         if (!ready()) return
-        if (event.target instanceof Element && event.target.closest('.lightbox__image')) return
+        if (event.target instanceof Element && event.target.closest('.lightbox__stage')) return
         closeLightbox()
     })
 
@@ -396,6 +494,12 @@ function ensure(): LightboxRefs {
     actualButton.addEventListener('click', () => {
         if (!ready()) return
         zoomTo(1)
+    })
+
+    // ---- 逆时针旋转，只影响本次预览 ----
+    rotateButton.addEventListener('click', () => {
+        if (!ready()) return
+        rotate()
     })
 
     // ---- 纹理过滤：全局记忆 ----
@@ -499,8 +603,7 @@ function ensure(): LightboxRefs {
             return
         }
         scale = fitScale
-        el.image.classList.remove('is-smooth')
-        applySize()
+        applySize(false)
         updateBar()
     })
 

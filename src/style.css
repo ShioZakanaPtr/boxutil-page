@@ -1258,10 +1258,25 @@ svg {
     touch-action: none;
 }
 
-.lightbox__image {
-    display: block;
+/* 舞台承担布局：尺寸恒等于当前旋转角度下的可视包围盒，图片在它内部绕中心旋转 */
+.lightbox__stage {
+    position: relative;
+    flex-shrink: 0;
     /* flex + margin:auto：在可滚动容器里居中，且内容超长时不会裁掉起始边 */
     margin: auto;
+}
+
+/* 按钮切换倍率 / 旋转时让舞台尺寸跟着平滑过渡；滚轮与双指缩放不加，保证跟手 */
+.lightbox__stage.is-smooth {
+    transition: width 0.16s var(--ease), height 0.16s var(--ease);
+}
+
+.lightbox__image {
+    position: absolute;
+    /* 配合基础 transform 的 translate(-50%, -50%) 居中，尺寸再大也不会被 auto margin 归零影响 */
+    top: 50%;
+    left: 50%;
+    display: block;
     max-width: none;
     max-height: none;
     /*border-radius: var(--radius);*/
@@ -1274,7 +1289,7 @@ svg {
 
 /* 按钮 / 点击切换倍率时让尺寸也参与过渡；滚轮与双指缩放不加，保证跟手 */
 .lightbox__image.is-smooth {
-    transition: transform 0.1s var(--ease), opacity 0.1s var(--ease),
+    transition: transform 0.16s var(--ease), opacity 0.1s var(--ease),
         width 0.16s var(--ease), height 0.16s var(--ease);
 }
 

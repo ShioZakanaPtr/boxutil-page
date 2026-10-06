@@ -27,6 +27,15 @@ async function waitFor(expression, timeout = 10000) {
     return false
 }
 
+/** 读取预览图当前的逆时针旋转角（0 / 90 / 180 / 270） */
+const CCW_ANGLE = `(() => {
+  const style = getComputedStyle(document.querySelector('.lightbox__image')).transform
+  if (!style || style === 'none') return 0
+  const matrix = new DOMMatrix(style)
+  const deg = Math.atan2(matrix.b, matrix.a) * 180 / Math.PI
+  return Math.round(((-deg % 360) + 360) % 360)
+})()`
+
 async function diagnose(context) {
     const probe = await evaluate(`(() => ({
       href: location.href,
@@ -146,9 +155,12 @@ try {
         actionHasSvg: actions.map((b) => !!b.querySelector('svg')),
         actionText: actions.map((b) => b.textContent.trim()),
         actionDisabled: actions.map((b) => b.disabled),
-        iconPaths: actions.map((b) => b.querySelector('path')?.getAttribute('d') ?? ''),
+        iconMarkup: actions.map((b) => b.querySelector('svg')?.innerHTML ?? ''),
+        actualPathCount: document.querySelector('[data-action="actual"]').querySelectorAll('path').length,
+        actionsInOrder: actions.map((b) => b.dataset.action),
         fitActive: document.querySelector('[data-action="fit"]').classList.contains('is-active'),
         actualActive: document.querySelector('[data-action="actual"]').classList.contains('is-active'),
+        rotateAngle: document.querySelector('[data-action="rotate"]').dataset.angle,
         filterActive: document.querySelector('[data-action="filter"]').dataset.filter,
         imageRendering: getComputedStyle(img).imageRendering,
         storedFilter: localStorage.getItem('boxutil-guide-image-filter'),
@@ -184,10 +196,13 @@ try {
         `${landed.size} vs ${Math.round(landed.rect.width)} x ${Math.round(landed.rect.height)}`,
     )
     check('三组之间有两道分割线', landed.dividers === 2, String(landed.dividers))
-    check('共三个调节按钮', landed.actionCount === 3, String(landed.actionCount))
+    check('共四个调节按钮', landed.actionCount === 4, String(landed.actionCount))
+    check('调节按钮顺序为 自适应 / 原尺寸 / 旋转 / 过滤', landed.actionsInOrder.join(',') === 'fit,actual,rotate,filter', landed.actionsInOrder.join(','))
     check('调节按钮都是 button', landed.actionTags.every((t) => t === 'BUTTON'), landed.actionTags.join(','))
     check('调节按钮改用 svg 图标（无文字）', landed.actionHasSvg.every(Boolean) && landed.actionText.every((t) => t === ''), JSON.stringify(landed.actionText))
-    check('三个按钮图标互不相同', new Set(landed.iconPaths).size === 3, landed.iconPaths.join(' | '))
+    check('四个按钮图标互不相同', new Set(landed.iconMarkup).size === 4, String(new Set(landed.iconMarkup).size))
+    check('原尺寸按钮是 1:1 字形（两条竖笔 + 冒号）', landed.actualPathCount === 3, String(landed.actualPathCount))
+    check('初始旋转角为 0', landed.rotateAngle === '0', String(landed.rotateAngle))
     check('没有按钮被禁用', landed.actionDisabled.every((d) => d === false), JSON.stringify(landed.actionDisabled))
     check('初始高亮「自适应尺寸」', landed.fitActive === true && landed.actualActive === false)
 
@@ -260,6 +275,60 @@ try {
     check('点「自适应尺寸」回到自适应倍率', backToFit.zoom === `${Math.round(landed.fit * 100)}%`, `${fitClick.zoom} → ${backToFit.zoom}`)
     check('自适应下按钮保持可点击并高亮', backToFit.disabled === false && backToFit.active === true)
 
+    // ---- 旋转：逆时针 90° 递增循环，且只是本次会话的临时状态 ----
+    const rotateFit = await evaluate(`(async () => {
+      document.querySelector('[data-action="rotate"]').click()
+      await new Promise((r) => setTimeout(r, 340))
+      const rect = document.querySelector('.lightbox__image').getBoundingClientRect()
+      return {
+        angle: ${CCW_ANGLE},
+        stored: document.querySelector('[data-action="rotate"]').dataset.angle,
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        size: document.querySelector('.lightbox__size').textContent.trim(),
+        zoom: document.querySelector('.lightbox__zoom').textContent,
+        fits: rect.width <= window.innerWidth && rect.height <= window.innerHeight,
+        stageFits: (() => {
+          const stage = document.querySelector('.lightbox__stage').getBoundingClientRect()
+          const viewport = document.querySelector('.lightbox__viewport')
+          return stage.width <= viewport.clientWidth && stage.height <= viewport.clientHeight
+        })(),
+      }
+    })()`)
+
+    check('旋转按钮逆时针转 90°', rotateFit.angle === 90 && rotateFit.stored === '90', `${rotateFit.angle} / ${rotateFit.stored}`)
+    check('自适应状态下旋转后仍整体可见', rotateFit.fits === true && rotateFit.stageFits === true, JSON.stringify(rotateFit))
+    check('旋转后倍率按新包围盒重新适配', rotateFit.zoom !== backToFit.zoom, `${backToFit.zoom} → ${rotateFit.zoom}`)
+    check('旋转后可视包围盒变成竖版', rotateFit.height > rotateFit.width, `${rotateFit.width}×${rotateFit.height}`)
+
+    // 100% 时尺寸文本应变成原始像素的宽高互换
+    await evaluate(`document.querySelector('[data-action="actual"]').click()`)
+    await sleep(280)
+    const actualRotated = await evaluate(`(() => ({
+      size: document.querySelector('.lightbox__size').textContent.trim(),
+      angle: ${CCW_ANGLE},
+    }))()`)
+    check(
+        '原尺寸 + 旋转 90° 后尺寸文本同步互换',
+        actualRotated.size === `${landed.natural[1]} x ${landed.natural[0]}`,
+        `${actualRotated.size} vs ${landed.natural[1]} x ${landed.natural[0]}`,
+    )
+
+    const rotateCycle = await evaluate(`(async () => {
+      const button = document.querySelector('[data-action="rotate"]')
+      const read = () => ${CCW_ANGLE}
+      button.click()
+      await new Promise((r) => setTimeout(r, 300))
+      const second = read()
+      button.click()
+      await new Promise((r) => setTimeout(r, 300))
+      const third = read()
+      button.click()
+      await new Promise((r) => setTimeout(r, 300))
+      return {second, third, back: read(), stored: button.dataset.angle}
+    })()`)
+    check('连续旋转按 90 → 180 → 270 → 0 循环', rotateCycle.second === 180 && rotateCycle.third === 270 && rotateCycle.back === 0 && rotateCycle.stored === '0', JSON.stringify(rotateCycle))
+
     // ---- 纹理过滤：默认线性、可切换、全局记忆 ----
     check('预览默认使用线性过滤', landed.filterActive === 'linear' && landed.imageRendering === 'auto', `${landed.filterActive} / ${landed.imageRendering}`)
     check('未手动切换前不写存档', landed.storedFilter === null || landed.storedFilter === 'linear', String(landed.storedFilter))
@@ -291,11 +360,14 @@ try {
         mode: document.querySelector('[data-action="filter"]').dataset.filter,
         rendering: getComputedStyle(document.querySelector('.lightbox__image')).imageRendering,
         zoom: document.querySelector('.lightbox__zoom').textContent,
+        angle: ${CCW_ANGLE},
+        storedAngle: document.querySelector('[data-action="rotate"]').dataset.angle,
       }
     })()`)
 
     check('再次打开预览沿用记忆的过滤模式', reopened.mode === 'nearest' && reopened.rendering === 'pixelated', `${reopened.mode} / ${reopened.rendering}`)
     check('再次打开仍默认自适应尺寸', reopened.zoom === `${Math.round(landed.fit * 100)}%`, reopened.zoom)
+    check('旋转不跨会话保留，重新打开回到 0°', reopened.angle === 0 && reopened.storedAngle === '0', `${reopened.angle} / ${reopened.storedAngle}`)
 
     // 整页刷新后依然是记忆的模式
     await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}))`)
@@ -598,40 +670,59 @@ try {
     check('目标条目进入后自动展开', crossPage.installOpen === true)
     check('离开后原条目保持展开状态', crossPage.readmeStillOpen === true)
 
-    // ---- 主动收起：之后进入该条目也不再自动展开 ----
+    // ---- 主动收起只作用于本次停留：再次进入会重新自动展开 ----
     const collapseState = await evaluate(`(async () => {
       const item = document.querySelector('.nav-item[data-nav-item="intro/install"]')
       item.querySelector('.nav-item__toggle').click()
       await new Promise((r) => setTimeout(r, 200))
       return {
         open: item.querySelector('.nav-item__outline').classList.contains('is-open'),
-        stored: JSON.parse(localStorage.getItem('boxutil-guide-nav-outline-collapsed') || '[]'),
+        expanded: item.querySelector('.nav-item__toggle').getAttribute('aria-expanded'),
       }
     })()`)
-    check('可以手动收起当前条目的小节', collapseState.open === false && collapseState.stored.includes('intro/install'), JSON.stringify(collapseState))
+    check('可以手动收起当前条目的小节', collapseState.open === false && collapseState.expanded === 'false', JSON.stringify(collapseState))
 
     await visit('#/intro/readme')
     await visit('#/intro/install')
     await sleep(500)
-    const remembered = await evaluate(`(() => {
+    const reentered = await evaluate(`(() => {
       const item = document.querySelector('.nav-item[data-nav-item="intro/install"]')
       return {
         open: item.querySelector('.nav-item__outline').classList.contains('is-open'),
         expanded: item.querySelector('.nav-item__toggle').getAttribute('aria-expanded'),
       }
     })()`)
-    check('主动收起的条目再次进入仍保持收起', remembered.open === false && remembered.expanded === 'false', JSON.stringify(remembered))
+    check('主动收起后再次进入该条目仍会重新自动展开', reentered.open === true && reentered.expanded === 'true', JSON.stringify(reentered))
 
-    // 主动展开一次之后再进入应该恢复自动展开
-    const reExpand = await evaluate(`(async () => {
+    // ---- 已经停在本页时，再点该条目的导航不应改变展开状态 ----
+    const samePage = await evaluate(`(async () => {
       const item = document.querySelector('.nav-item[data-nav-item="intro/install"]')
+      // 先点本页小节，让地址栏带上锚点，这样再点条目导航会真正触发一次重渲染
+      document.querySelector('.nav-item[data-nav-item="intro/install"] .nav-outline__link[data-outline-target="h2-1"]').click()
+      await new Promise((r) => setTimeout(r, 400))
+      const hashWithAnchor = location.hash
+
       item.querySelector('.nav-item__toggle').click()
-      await new Promise((r) => setTimeout(r, 200))
-      const opened = item.querySelector('.nav-item__outline').classList.contains('is-open')
-      await new Promise((r) => setTimeout(r, 100))
-      return {opened, stored: JSON.parse(localStorage.getItem('boxutil-guide-nav-outline-collapsed') || '[]')}
+      await new Promise((r) => setTimeout(r, 220))
+      const collapsed = !item.querySelector('.nav-item__outline').classList.contains('is-open')
+
+      item.querySelector('.nav-link').click()
+      await new Promise((r) => setTimeout(r, 600))
+      const after = document.querySelector('.nav-item[data-nav-item="intro/install"]')
+      return {
+        hashWithAnchor,
+        hashAfter: location.hash,
+        collapsed,
+        stillCollapsed: !after.querySelector('.nav-item__outline').classList.contains('is-open'),
+        title: document.querySelector('.page__title')?.textContent,
+      }
     })()`)
-    check('主动展开后撤销「保持收起」的记忆', reExpand.opened === true && !reExpand.stored.includes('intro/install'), JSON.stringify(reExpand))
+    check(
+        '已在本页时再点该条目导航不改变展开状态',
+        samePage.collapsed === true && samePage.stillCollapsed === true && samePage.title === '代码配置',
+        JSON.stringify(samePage),
+    )
+    check('重渲染后仍停在同一页（没有丢掉条目）', samePage.hashAfter === '#/intro/install', `${samePage.hashWithAnchor} → ${samePage.hashAfter}`)
 
     // 切到没有 h2 的条目
     await visit('#/intro/manager')
