@@ -7,7 +7,7 @@ var e=`
     <li><strong><code>StaticTrailData</code></strong>：记录了尾迹渲染所需的数据，同时也定义了一种尾迹类型。</li>
     <li><strong><code>StaticTrailTracker</code></strong>：控制每次记录循环中尾迹Node的生成，以及尾迹的自销毁。</li>
 </ul>
-<p>对于 <code>StaticTrailData</code> 各属性的配置可参考<a href="#/static_trail/autogen_register">静态尾迹</a>一节的内容，更多细节可参考 <b>JavaDoc</b> 配合使用。</p>
+<p>对于 <code>StaticTrailData</code> 各属性的配置可参考<a href="#/static-trail/autogen-register">静态尾迹</a>一节的内容，更多细节可参考 <b>JavaDoc</b> 配合使用。</p>
 
 <h2>Tracker</h2>
 <p>要让尾迹能够正确的出现在画面中，需要编写tracker进行控制；<code>StaticTrailTracker</code> 被设计为函数式接口以供快速编写简单的控制逻辑，也可以另行实现一个tracker类满足复杂的控制需求：</p>

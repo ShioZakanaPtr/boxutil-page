@@ -60,7 +60,7 @@ public final class YourModPlugin extends BaseModPlugin {
     }
 }
 <!-- /code -->
-<p>对于自定义tracker的编写，将于<a href="#/static_trail/custom_trail">自定义尾迹</a>一节讲解。</p>
+<p>对于自定义tracker的编写，将于<a href="#/static-trail/custom-trail">自定义尾迹</a>一节讲解。</p>
 
 <br>
 <p>此外，也同时支持使用MagicLib格式的表格文件：</p>

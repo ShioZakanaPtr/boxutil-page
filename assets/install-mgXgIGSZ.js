@@ -58,7 +58,7 @@ public final class YourEveryFrameCombatPlugin extends BaseEveryFrameCombatPlugin
 <h2>Java库</h2>
 <p>查看BoxUtil的Mod文件夹时，你可以在 <code>jars</code> 子文件夹下找到：</p>
 <ul>
-    <li><strong><code>BoxUtilMod.jar</code></strong>：开放给开发者使用的接口约定，对象，工具类等。</li>
+    <li><strong><code>BoxUtilMod.jar</code></strong>：开放给Modder使用的接口约定，对象，工具类等。</li>
     <li><strong><code>backends/BoxUtilImpl.jar</code></strong>：BoxUtil引擎底层相关内容，用以支持其在游戏中运作。</li>
 </ul>
 <p>一般情况下，编写代码时，只需使用 <code>BoxUtilMod.jar</code> 中的内容即可，<code>backends/BoxUtilImpl.jar</code> 不是必要的依赖项。</p>

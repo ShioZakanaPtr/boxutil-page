@@ -3,7 +3,7 @@ var e=`
 <p>这些渲染类会使用 <code>MaterialData</code> 存放各式纹理与材质属性，每个实现了该接口的渲染类在创建后会拥有一个默认的非 <code>null</code> 材质类，故不用特地进行检查。</p>
 
 <h2>MaterialData</h2>
-<p>在BoxUtil引擎中，<code>MaterialData</code> 是包括渲染类在内，绝大部分业务都在使用的标准材质类。</p>
+<p>在BoxUtil引擎中，<code>MaterialData</code> 是包括渲染类在内，绝大部分业务都在使用的通用材质类。</p>
 <p>目前，材质类可以配置五层不同用途的纹理：</p>
 <table>
     <thead>
