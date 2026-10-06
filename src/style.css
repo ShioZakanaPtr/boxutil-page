@@ -454,10 +454,10 @@ svg {
     letter-spacing: 0.01em;
     text-align: left;
     cursor: pointer;
-    transition: background 0.15s var(--ease), color 0.15s var(--ease), padding 0.1s var(--ease);
+    transition: background 0.15s var(--ease), color 0.15s var(--ease), padding-left 0.1s var(--ease);
 
     &:hover {
-        padding: 8px 10px 8px 13px;
+        padding-left: 13px;
         background: var(--bg-hover);
         color: var(--text);
     }
@@ -520,11 +520,11 @@ svg {
     border-radius: var(--radius-sm);
     color: var(--text-soft);
     font-size: 13.5px;
-    transition: background 0.1s var(--ease), color 0.1s var(--ease), font-size 0.1s var(--ease), padding 0.1s var(--ease), transform 0.1s var(--ease);
+    transition: background 0.1s var(--ease), color 0.1s var(--ease), font-size 0.1s var(--ease), padding-left 0.1s var(--ease), transform 0.1s var(--ease);
 
 
     &:hover {
-        padding: 8px 10px 8px 35px;
+        padding-left: 35px;
         background: var(--bg-hover);
         color: var(--text);
     }
@@ -600,7 +600,8 @@ svg {
     list-style: none;
     /* 一条竖线把小节和条目本身连起来，形成层级 */
     border-left: 3px solid var(--border);
-    margin-left: 33px;
+    /* 比条目本身再缩进 16px：竖线与文字一起右移，和 items 拉开层次 */
+    margin-left: 49px;
 }
 
 .nav-outline__link {
@@ -613,9 +614,10 @@ svg {
     line-height: 1.5;
     white-space: nowrap;
     text-overflow: ellipsis;
-    transition: background 0.1s var(--ease), color 0.1s var(--ease);
+    transition: background 0.1s var(--ease), color 0.1s var(--ease), padding-left 0.1s var(--ease);
 
     &:hover {
+        padding-left: 13px;
         background: var(--bg-hover);
         color: var(--text);
     }
@@ -860,7 +862,7 @@ svg {
 }
 
 .doc-figure img:hover {
-    transform: translateY(-2px) scale(1.005);
+    transform: translateY(-2px);
     box-shadow: var(--shadow-hover);
 }
 
@@ -1282,15 +1284,16 @@ svg {
     left: 50%;
     z-index: 2;
     display: flex;
-    gap: 12px;
+    gap: 8px;
     align-items: center;
-    padding: 5px 6px 5px 14px;
+    padding: 5px 8px 5px 14px;
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 999px;
     background: rgba(16, 22, 19, 0.76);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     color: #eef4f1;
+    white-space: nowrap;
     opacity: 0;
     transform: translateX(-50%) translateY(6px);
     transition: opacity 0.14s var(--ease), transform 0.14s var(--ease);
@@ -1303,32 +1306,55 @@ svg {
 }
 
 .lightbox__zoom {
-    min-width: 42px;
     font-size: 12.5px;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
-    text-align: center;
 }
 
-.lightbox__mode {
-    height: 28px;
-    padding: 0 13px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
-    color: inherit;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.14s var(--ease), border-color 0.14s var(--ease);
+/* 当前显示尺寸，紧跟在倍率右侧 */
+.lightbox__size {
+    color: rgba(238, 244, 241, 0.62);
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+}
 
-    &:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.2);
+/* 倍率 / 尺寸调节 / 过滤模式三组之间的分割线 */
+.lightbox__divider {
+    flex-shrink: 0;
+    width: 1px;
+    height: 18px;
+    margin: 0 2px;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.lightbox__action {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 5px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: rgba(238, 244, 241, 0.76);
+    cursor: pointer;
+    transition: background 0.14s var(--ease), color 0.14s var(--ease);
+
+    &:hover {
+        background: rgba(255, 255, 255, 0.14);
+        color: #ffffff;
     }
 
-    &:disabled {
-        opacity: 0.5;
-        cursor: default;
+    &:active {
+        background: rgba(255, 255, 255, 0.26);
+    }
+
+    /* 当前生效的尺寸 / 过滤模式 */
+    &.is-active {
+        background: rgba(255, 255, 255, 0.18);
+        color: #ffffff;
     }
 }
 

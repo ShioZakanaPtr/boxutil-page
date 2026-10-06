@@ -8,17 +8,23 @@ import {icon} from './icons.ts'
  * 于是图片看起来是从原位置淡入并平移到中央的。
  *
  * 过渡结束后可以自由缩放：
- * - PC：滚轮缩放（以光标为锚点）、点击图片在「原尺寸 / 自适应」之间切换
+ * - PC：滚轮缩放（以光标为锚点）、单指拖动查看
  * - 触屏：双指缩放，单指拖动查看
+ *
+ * 底部工具条分三组，用分割线隔开：倍率 + 当前尺寸 | 尺寸调节 | 纹理过滤。
  */
 
 /** 与 CSS 中的过渡时长保持一致（0.1s） */
 const DURATION = 100
 /** 缩放倍率的上下限（相对图片原始像素） */
 const MIN_SCALE = 0.05
-const MAX_SCALE = 8
+const MAX_SCALE = 16
 /** 超过这个位移就认为是在拖动画面，而不是点击图片 */
 const DRAG_THRESHOLD = 4
+/** 纹理过滤模式的存档键：全局记忆，下次打开预览时沿用 */
+const FILTER_KEY = 'boxutil-guide-image-filter'
+
+type FilterMode = 'linear' | 'nearest'
 
 interface LightboxRefs {
     root: HTMLDivElement
@@ -26,7 +32,10 @@ interface LightboxRefs {
     viewport: HTMLDivElement
     image: HTMLImageElement
     zoom: HTMLSpanElement
-    mode: HTMLButtonElement
+    size: HTMLSpanElement
+    fit: HTMLButtonElement
+    actual: HTMLButtonElement
+    filter: HTMLButtonElement
     close: HTMLButtonElement
 }
 
@@ -36,6 +45,10 @@ let refs: LightboxRefs | null = null
 let opened = false
 /** 打开 / 关闭的过渡进行中：期间忽略滚轮、点击、拖动与按键 */
 let animating = false
+
+/** 纹理过滤模式，全局记忆 */
+let filter: FilterMode = 'linear'
+let filterLoaded = false
 
 let scale = 1
 /** 刚好完整显示在窗口内所需的倍率；>= 1 表示无需缩小 */
@@ -134,6 +147,7 @@ function open(image: HTMLImageElement): void {
     el.image.style.transformOrigin = 'top left'
     el.image.style.transform = 'none'
     el.image.style.opacity = '0'
+    applyFilter()
     el.root.hidden = false
     el.root.setAttribute('aria-hidden', 'false')
     el.root.classList.remove('is-ready')
@@ -214,21 +228,48 @@ function applySize(): void {
     el.image.style.height = `${naturalHeight * scale}px`
 }
 
+function loadFilter(): void {
+    if (filterLoaded) return
+    filterLoaded = true
+    if (localStorage.getItem(FILTER_KEY) === 'nearest') filter = 'nearest'
+}
+
+/** 纹理过滤：nearest 用 CSS 的 pixelated（对应 GL_NEAREST），其余交给浏览器的平滑缩放（GL_LINEAR） */
+function applyFilter(): void {
+    const el = refs
+    if (!el) return
+    el.image.style.imageRendering = filter === 'nearest' ? 'pixelated' : 'auto'
+}
+
+/** 同步底部工具条：倍率、当前尺寸、两个尺寸按钮的选中态、过滤模式按钮 */
 function updateBar(): void {
     const el = refs
     if (!el) return
 
     el.zoom.textContent = `${Math.round(scale * 100)}%`
+    el.size.textContent = `${Math.round(naturalWidth * scale)} x ${Math.round(naturalHeight * scale)}`
 
-    // 图片本来就不必缩小时，两种模式结果相同：按钮保持禁用更诚实
-    const fixed = fitScale >= 1 - 1e-3
-    const atFit = Math.abs(scale - fitScale) < 1e-3
-    el.mode.disabled = fixed
-    el.mode.textContent = fixed || atFit ? '原尺寸' : '自适应尺寸'
-    el.mode.dataset.mode = fixed || atFit ? 'fit' : 'actual'
-    const label = fixed ? '图片已按原尺寸显示' : atFit ? '切换到原尺寸（100%）' : '切换到自适应尺寸'
-    el.mode.title = label
-    el.mode.setAttribute('aria-label', label)
+    // 两个按钮始终可点：即便当前倍率已经相同，也允许再点一次（不做禁用）
+    const atFit = Math.abs(scale - fitScale) < 0.005
+    const atActual = Math.abs(scale - 1) < 0.005
+    el.fit.classList.toggle('is-active', atFit)
+    el.actual.classList.toggle('is-active', atActual)
+    el.fit.setAttribute('aria-pressed', String(atFit))
+    el.actual.setAttribute('aria-pressed', String(atActual))
+
+    const fitLabel = '缩放至自适应尺寸'
+    const actualLabel = '缩放至原尺寸'
+    el.fit.title = fitLabel
+    el.actual.title = actualLabel
+    el.fit.setAttribute('aria-label', fitLabel)
+    el.actual.setAttribute('aria-label', actualLabel)
+
+    el.filter.dataset.filter = filter
+    el.filter.setAttribute('aria-pressed', String(filter === 'nearest'))
+    el.filter.innerHTML = icon(filter === 'nearest' ? 'filterNearest' : 'filterLinear')
+    const label = filter === 'nearest' ? '邻近过滤（点击切换为线性过滤）' : '线性过滤（点击切换为邻近过滤）'
+    el.filter.title = label
+    el.filter.setAttribute('aria-label', label)
 }
 
 /**
@@ -264,8 +305,17 @@ function zoom(clientX: number, clientY: number, next: number, smooth: boolean): 
     el.viewport.scrollTop += after.height * ratioY - (clientY - after.top)
 }
 
+/** 以画面中心为锚点切换到指定倍率 */
+function zoomTo(next: number): void {
+    const el = refs
+    if (!el) return
+    zoom(el.viewport.clientWidth / 2, el.viewport.clientHeight / 2, next, true)
+}
+
 function ensure(): LightboxRefs {
     if (refs) return refs
+
+    loadFilter()
 
     const root = document.createElement('div')
     root.className = 'lightbox'
@@ -281,7 +331,12 @@ function ensure(): LightboxRefs {
     </div>
     <div class="lightbox__bar">
       <span class="lightbox__zoom" aria-live="polite">100%</span>
-      <button type="button" class="lightbox__mode">原尺寸</button>
+      <span class="lightbox__size">0 x 0</span>
+      <span class="lightbox__divider" aria-hidden="true"></span>
+      <button type="button" class="lightbox__action" data-action="fit">${icon('fit')}</button>
+      <button type="button" class="lightbox__action" data-action="actual">${icon('actual')}</button>
+      <span class="lightbox__divider" aria-hidden="true"></span>
+      <button type="button" class="lightbox__action" data-action="filter">${icon('filterLinear')}</button>
     </div>
     <button type="button" class="lightbox__close icon-btn" aria-label="关闭预览" title="关闭预览（Esc）">
       ${icon('close')}
@@ -292,10 +347,24 @@ function ensure(): LightboxRefs {
     const viewport = root.querySelector<HTMLDivElement>('.lightbox__viewport')!
     const image = root.querySelector<HTMLImageElement>('.lightbox__image')!
     const zoomLabel = root.querySelector<HTMLSpanElement>('.lightbox__zoom')!
-    const mode = root.querySelector<HTMLButtonElement>('.lightbox__mode')!
+    const size = root.querySelector<HTMLSpanElement>('.lightbox__size')!
+    const fitButton = root.querySelector<HTMLButtonElement>('.lightbox__action[data-action="fit"]')!
+    const actualButton = root.querySelector<HTMLButtonElement>('.lightbox__action[data-action="actual"]')!
+    const filterButton = root.querySelector<HTMLButtonElement>('.lightbox__action[data-action="filter"]')!
     const close = root.querySelector<HTMLButtonElement>('.lightbox__close')!
 
-    const el: LightboxRefs = {root, backdrop, viewport, image, zoom: zoomLabel, mode, close}
+    const el: LightboxRefs = {
+        root,
+        backdrop,
+        viewport,
+        image,
+        zoom: zoomLabel,
+        size,
+        fit: fitButton,
+        actual: actualButton,
+        filter: filterButton,
+        close,
+    }
     refs = el
 
     /** 双指的距离与中点 */
@@ -318,11 +387,24 @@ function ensure(): LightboxRefs {
 
     close.addEventListener('click', () => closeLightbox())
 
-    // ---- 缩放倍率 / 模式按钮 ----
-    mode.addEventListener('click', () => {
+    // ---- 尺寸调节：两个按钮各自应用对应倍率，任何时候都可点 ----
+    fitButton.addEventListener('click', () => {
         if (!ready()) return
-        const atFit = Math.abs(scale - fitScale) < 1e-3
-        zoom(viewport.clientWidth / 2, viewport.clientHeight / 2, atFit ? 1 : fitScale, true)
+        zoomTo(fitScale)
+    })
+
+    actualButton.addEventListener('click', () => {
+        if (!ready()) return
+        zoomTo(1)
+    })
+
+    // ---- 纹理过滤：全局记忆 ----
+    filterButton.addEventListener('click', () => {
+        if (!ready()) return
+        filter = filter === 'nearest' ? 'linear' : 'nearest'
+        localStorage.setItem(FILTER_KEY, filter)
+        applyFilter()
+        updateBar()
     })
 
     // ---- 点击图片：放大到原尺寸，或从原尺寸缩回自适应 ----

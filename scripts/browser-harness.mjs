@@ -11,8 +11,20 @@ import {fileURLToPath} from 'node:url'
 export const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 export const DIST = join(PROJECT_ROOT, 'dist')
 
-/** 模拟 GitHub Pages 的子路径部署，保证 base 配置真的生效 */
-export const PREFIX = '/boxutil_page/'
+/**
+ * 站点在静态服务器上的子路径。
+ *
+ * 不写死：从构建产物的资源地址里推导（等价于 vite.config.ts 的 build.base），
+ * 这样仓库改名或换自定义域名时不会出现「页面加载了、资源全 404」的假象。
+ */
+export let PREFIX = '/'
+
+/** 从 dist/index.html 的入口资源地址推导子路径，例如 '/boxutil-page/' */
+function detectPrefix(html) {
+    // vite 把入口脚本 / 样式放在 <base>assets/ 下，取 assets 之前的部分即可
+    const match = /(?:src|href)="([^"]*?)\/assets\//.exec(html)
+    return match ? `${match[1]}/` : '/'
+}
 
 const MIME = {
     '.html': 'text/html; charset=utf-8',
@@ -36,7 +48,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 function startStaticServer(port) {
     const server = createServer(async (req, res) => {
         let pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname)
-        if (pathname.startsWith(PREFIX)) pathname = pathname.slice(PREFIX.length - 1)
+        if (PREFIX !== '/' && pathname.startsWith(PREFIX)) pathname = pathname.slice(PREFIX.length - 1)
         if (pathname === '' || pathname === '/') pathname = '/index.html'
 
         // 必须以 DIST 为根解析，去掉开头斜杠以免 path.join 丢弃根目录
@@ -115,6 +127,9 @@ export async function launch({httpPort = 4319, cdpPort = 9333, viewport = {width
     if (!existsSync(join(DIST, 'index.html'))) {
         throw new Error('dist/index.html 不存在，请先执行 npm run build')
     }
+
+    // 先按构建产物确定子路径，再开服务器：两者必须一致，否则资源会 404
+    PREFIX = detectPrefix(await readFile(join(DIST, 'index.html'), 'utf8'))
 
     const server = startStaticServer()
     await new Promise((resolve) => server.listen(httpPort, '127.0.0.1', resolve))
