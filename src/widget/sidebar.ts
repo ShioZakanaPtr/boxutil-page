@@ -13,17 +13,27 @@ export function Sidebar(): string {
         .map((chapter) => {
             const listId = `nav-group-${chapter.folder}`
             const items = chapter.items
-                .map(
-                    (item) => `
-          <li>
-            <a class="nav-link" href="${href(`${chapter.folder}/${item.slug}`)}"
-               data-nav-path="${chapter.folder}/${item.slug}"
-               title="${item.description ?? item.title}">
-              <span class="nav-link__dot" aria-hidden="true"></span>
-              <span class="nav-link__text">${item.title}</span>
-            </a>
-          </li>`,
-                )
+                .map((item) => {
+                    const path = `${chapter.folder}/${item.slug}`
+                    return `
+          <li class="nav-item" data-nav-item="${path}">
+            <div class="nav-item__row">
+              <a class="nav-link" href="${href(path)}"
+                 data-nav-path="${path}"
+                 title="${item.description ?? item.title}">
+                <span class="nav-link__dot" aria-hidden="true"></span>
+                <span class="nav-link__text">${item.title}</span>
+              </a>
+              <button type="button" class="nav-item__toggle" hidden aria-expanded="false"
+                      aria-label="展开本节小标题" title="展开本节小标题">
+                <span class="nav-item__chevron" aria-hidden="true">${icon('chevron')}</span>
+              </button>
+            </div>
+            <div class="nav-item__outline" hidden>
+              <ul class="nav-outline"></ul>
+            </div>
+          </li>`
+                })
                 .join('')
 
             return `

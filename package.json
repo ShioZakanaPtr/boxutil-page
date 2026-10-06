@@ -11,6 +11,7 @@
     "check": "tsc --noEmit",
     "verify:shiki": "node scripts/check-shiki.mjs",
     "verify:page": "node scripts/verify-page.mjs",
+    "verify:interaction": "node scripts/verify-lightbox-outline.mjs",
     "shots": "node scripts/shots.mjs"
   },
   "devDependencies": {

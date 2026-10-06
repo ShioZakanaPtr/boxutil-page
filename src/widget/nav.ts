@@ -1,5 +1,6 @@
 import {chapterList} from '../nav/chapters.ts'
 import {icon} from './icons.ts'
+import {isLightboxOpen} from './lightbox.ts'
 const OPEN_GROUP_KEY = 'boxutil-guide-open-group'
 const COLLAPSED_KEY = 'boxutil-guide-nav-collapsed'
 const MOBILE_QUERY = '(max-width: 980px)'
@@ -49,9 +50,10 @@ export function setupSidebar(): void {
         toggle.innerHTML = icon(open ? 'panelLeft' : 'menu')
     }
 
-    // Esc：窄屏关抽屉，桌面端展开被收纳的面板
+    // Esc：窄屏关抽屉，桌面端展开被收纳的面板；图片预览打开时 Esc 归预览所有
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return
+        if (isLightboxOpen()) return
         if (root.classList.contains('is-nav-open')) setDrawer(false)
         else if (collapsed) setCollapsed(false)
     })
@@ -101,9 +103,9 @@ export function setupSidebar(): void {
         })
     }
 
-    // 抽屉里点条目后立刻收起，否则会挡住刚打开的正文
+    // 抽屉里点条目（含条目内的小标题）后立刻收起，否则会挡住刚打开的正文
     sidebar.addEventListener('click', (event) => {
-        if (isMobile() && (event.target as HTMLElement).closest('.nav-link')) setDrawer(false)
+        if (isMobile() && (event.target as HTMLElement).closest('.nav-link, .nav-outline__link')) setDrawer(false)
     })
 
     // 跨过断点时切换模式：拉宽回桌面要清掉抽屉状态，避免遮罩残留

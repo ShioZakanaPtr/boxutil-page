@@ -530,6 +530,102 @@ svg {
     }
 }
 
+/* 条目一行：链接占据剩余宽度，右侧留给「展开小节」按钮 */
+.nav-item__row {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+}
+
+.nav-item__row .nav-link {
+    flex: 1;
+    min-width: 0;
+}
+
+.nav-item__toggle {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 5px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.15s var(--ease), color 0.15s var(--ease);
+
+    &:hover {
+        background: var(--bg-hover);
+        color: var(--text);
+    }
+
+    /* hidden 由 JS 控制：没有 h2 的条目不会出现这个按钮 */
+    &[hidden] {
+        display: none;
+    }
+}
+
+.nav-item__chevron {
+    display: block;
+    width: 12px;
+    height: 12px;
+    transition: transform 0.1s var(--ease);
+}
+
+.nav-item__toggle[aria-expanded='true'] .nav-item__chevron {
+    transform: rotate(90deg);
+}
+
+/* 小节列表：与章节折叠一样用 grid-template-rows 0fr → 1fr 过渡，时长 0.1s */
+.nav-item__outline {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.1s var(--ease);
+
+    &[hidden] {
+        display: grid;
+    }
+}
+
+.nav-item__outline.is-open {
+    grid-template-rows: 1fr;
+}
+
+.nav-outline {
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    /* 一条竖线把小节和条目本身连起来，形成层级 */
+    border-left: 3px solid var(--border);
+    margin-left: 33px;
+}
+
+.nav-outline__link {
+    display: block;
+    overflow: hidden;
+    padding: 5px 10px 5px 10px;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    transition: background 0.1s var(--ease), color 0.1s var(--ease);
+
+    &:hover {
+        background: var(--bg-hover);
+        color: var(--text);
+    }
+
+    &.is-active {
+        color: var(--accent);
+        font-weight: 600;
+    }
+}
+
 .nav-link__dot {
     flex-shrink: 0;
     width: 4px;
@@ -658,6 +754,8 @@ svg {
     font-weight: 650;
     line-height: 1.4;
     letter-spacing: -0.014em;
+    /* 页面内跳转时给固定横幅留出高度，标题不会被压住 */
+    scroll-margin-top: calc(var(--banner-height) + 18px);
 }
 
 .prose h3 {
@@ -1050,7 +1148,214 @@ svg {
 }
 
 /* ==========================================================================
-   11. 响应式
+   11. 页面内快速导航（PC / 右上角）
+   浮动在顶部横幅下方的右边缘：无背景，高度上限固定，超出时内部滚动。
+   悬浮层本身不参与文档流，布局上通过给正文让出右侧空间来避免压住文字。
+   ========================================================================== */
+
+.page-outline {
+    position: fixed;
+    top: calc(var(--banner-height) + 18px);
+    right: 20px;
+    z-index: 40;
+    width: 176px;
+    /* 高度受限：h2 再多也不会无限变长，超出部分在控件内部滚动 */
+    max-height: min(58vh, 420px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* 无背景、无边框，只有文字本身可见 */
+    background: none;
+    border: none;
+
+    &[hidden] {
+        display: none;
+    }
+}
+
+.page-outline__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.page-outline__link {
+    display: block;
+    overflow: hidden;
+    padding: 4px 2px 4px 10px;
+    border-left: 2px solid transparent;
+    color: var(--text-muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    transition: color 0.15s var(--ease), border-color 0.15s var(--ease);
+
+    &:hover {
+        color: var(--text);
+    }
+
+    &.is-active {
+        border-left-color: var(--accent);
+        color: var(--accent);
+        font-weight: 600;
+    }
+}
+
+/* 正文为右侧的快速导航让出空间，避免文字被悬浮层压住。
+   窄屏（<= 1200px）下不显示该控件，也就不需要让位。 */
+@media (min-width: 1201px) {
+    :root.has-outline .main {
+        padding-right: 236px;
+    }
+}
+
+/* ==========================================================================
+   12. 图片放大预览（lightbox）
+   ========================================================================== */
+
+/* 预览打开时锁住页面滚动；scrollbar-gutter: stable 保证滚动条槽位不消失 */
+:root.is-lightbox-open {
+    overflow: hidden;
+    /* fixed 定位的遮罩会被裁在布局视口内，漏出滚动条槽位那一条。
+       画布背景换成「遮罩色叠在页面底色上」的等效色，槽位就不会在深色遮罩旁发亮 */
+    background: color-mix(in srgb, #070b09 68%, var(--bg));
+}
+
+.lightbox {
+    position: fixed;
+    inset: 0;
+    /* 必须显式指定宽度：html 上的 scrollbar-gutter: stable 会让固定定位的包含块
+       比窗口窄一条滚动条宽度，只写 inset: 0 时遮罩会漏出一条没变暗的边 */
+    width: 100vw;
+    z-index: 200;
+
+    &[hidden] {
+        display: none;
+    }
+}
+
+.lightbox__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(7, 11, 9, 0.68);
+    backdrop-filter: blur(9px) saturate(140%);
+    -webkit-backdrop-filter: blur(9px) saturate(140%);
+    transition: opacity 0.1s var(--ease);
+}
+
+.lightbox__viewport {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    overflow: auto;
+    /* 底部留出工具条的高度，图片的自适应尺寸正好落在工具条上方 */
+    padding: 26px 26px 82px;
+    overscroll-behavior: contain;
+    /* 手势全部自己处理（拖动查看 / 双指缩放） */
+    touch-action: none;
+}
+
+.lightbox__image {
+    display: block;
+    /* flex + margin:auto：在可滚动容器里居中，且内容超长时不会裁掉起始边 */
+    margin: auto;
+    max-width: none;
+    max-height: none;
+    /*border-radius: var(--radius);*/
+    /*box-shadow: var(--shadow-lg);*/
+    cursor: zoom-in;
+    user-select: none;
+    -webkit-user-drag: none;
+    transition: transform 0.1s var(--ease), opacity 0.1s var(--ease);
+}
+
+/* 按钮 / 点击切换倍率时让尺寸也参与过渡；滚轮与双指缩放不加，保证跟手 */
+.lightbox__image.is-smooth {
+    transition: transform 0.1s var(--ease), opacity 0.1s var(--ease),
+        width 0.16s var(--ease), height 0.16s var(--ease);
+}
+
+.lightbox__bar {
+    position: absolute;
+    bottom: 22px;
+    left: 50%;
+    z-index: 2;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 5px 6px 5px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    background: rgba(16, 22, 19, 0.76);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #eef4f1;
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px);
+    transition: opacity 0.14s var(--ease), transform 0.14s var(--ease);
+}
+
+/* 图片落位后才淡入，避免飞入过程中抢注意力 */
+.lightbox.is-ready .lightbox__bar {
+    opacity: 1;
+    transform: translateX(-50%);
+}
+
+.lightbox__zoom {
+    min-width: 42px;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    text-align: center;
+}
+
+.lightbox__mode {
+    height: 28px;
+    padding: 0 13px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.14s var(--ease), border-color 0.14s var(--ease);
+
+    &:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+}
+
+.lightbox__close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 3;
+    width: 40px;
+    height: 40px;
+    padding: 11px;
+    border-radius: 50%;
+    background: rgba(16, 22, 19, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #eef4f1;
+    transition: background 0.15s var(--ease), color 0.15s var(--ease), transform 0.15s var(--ease);
+
+    &:hover {
+        background: rgba(16, 22, 19, 0.92);
+        color: #ffffff;
+        transform: rotate(90deg);
+    }
+}
+
+/* ==========================================================================
+   13. 响应式
    ========================================================================== */
 
 @media (min-width: 1500px) {
@@ -1066,6 +1371,11 @@ svg {
 @media (max-width: 1200px) {
     .main {
         padding: 34px 30px 80px;
+    }
+
+    /* 窄一些的桌面放不下正文 + 悬浮导航，这一档只保留左侧目录里的小节列表 */
+    .page-outline {
+        display: none;
     }
 }
 
@@ -1176,6 +1486,8 @@ svg {
     .banner,
     .sidebar,
     .backdrop,
+    .page-outline,
+    .lightbox,
     .page-nav {
         display: none !important;
     }
