@@ -454,9 +454,10 @@ svg {
     letter-spacing: 0.01em;
     text-align: left;
     cursor: pointer;
-    transition: background 0.15s var(--ease), color 0.15s var(--ease);
+    transition: background 0.15s var(--ease), color 0.15s var(--ease), padding 0.1s var(--ease);
 
     &:hover {
+        padding: 8px 10px 8px 13px;
         background: var(--bg-hover);
         color: var(--text);
     }
@@ -519,10 +520,11 @@ svg {
     border-radius: var(--radius-sm);
     color: var(--text-soft);
     font-size: 13.5px;
-    transition: background 0.1s var(--ease), color 0.1s var(--ease), font-size 0.1s var(--ease), padding 0.1s var(--ease);
+    transition: background 0.1s var(--ease), color 0.1s var(--ease), font-size 0.1s var(--ease), padding 0.1s var(--ease), transform 0.1s var(--ease);
 
 
     &:hover {
+        padding: 8px 10px 8px 35px;
         background: var(--bg-hover);
         color: var(--text);
     }
@@ -760,7 +762,7 @@ svg {
 }
 
 .doc-figure img:hover {
-    transform: translateY(-2px);
+    transform: translateY(-2px) scale(1.005);
     box-shadow: var(--shadow-hover);
 }
 
